@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tab Stüdyo — Serkan Bilgin</title>
+<style>
+  :root{ --bg:#0b0e13; --panel:#141a22; --line:#283142; --amber:#f4b14a; --ink:#e9edf3; --sub:#8a93a3; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; }
+  .wrap{ max-width:1040px; margin:0 auto; padding:16px 12px 70px; }
+  h1{ font-size:19px; margin:6px 0 2px; }
+  .hint{ color:var(--sub); font-size:12.5px; margin:0 0 12px; line-height:1.5; }
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:14px; }
+  .sectitle{ font-size:12px; color:var(--sub); text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; }
+
+  /* fretboard */
+  .fbscroll{ overflow-x:auto; padding-bottom:6px; }
+  table.fb{ border-collapse:collapse; min-width:760px; }
+  table.fb td{ padding:0; }
+  .slabel{ width:30px; text-align:center; font-weight:700; color:var(--amber);
+           font-family:Georgia,serif; position:sticky; left:0; background:var(--panel); z-index:2; }
+  .fret{ width:34px; height:34px; text-align:center; vertical-align:middle; font-size:12px;
+         color:#5d6470; border:1px solid #1d2530; background:#0e131a; cursor:pointer;
+         user-select:none; border-radius:7px; }
+  .fret:hover{ background:#182234; color:#aeb6c2; }
+  .fret:active, .fret.flash{ background:var(--amber); color:#1a1207; font-weight:700; }
+  .fret.open{ color:#cdd6e2; background:#10182a; }
+  .fret.sel{ background:#3b6cf6; color:#fff; font-weight:700; box-shadow:0 0 0 2px #6f93ff inset; }
+  .slabel[data-s]{ cursor:pointer; }
+  .slabel.muted{ color:#ff7a7a; text-decoration:line-through; }
+  .frethdr{ width:34px; text-align:center; font-size:10px; color:#414956; padding-bottom:2px; }
+
+  /* technique + action buttons */
+  .btns{ display:flex; flex-wrap:wrap; gap:7px; }
+  .tbtn{ min-width:42px; padding:9px 10px; border-radius:9px; border:1px solid var(--line);
+         background:#0e131a; color:var(--ink); font-size:14px; font-weight:700; cursor:pointer; }
+  .tbtn small{ display:block; font-weight:400; font-size:9.5px; color:var(--sub); margin-top:1px; }
+  .tbtn:active{ transform:translateY(1px); }
+  .tbtn.amber{ background:var(--amber); color:#1a1207; border-color:var(--amber); }
+  .tbtn.warn{ background:#2a1414; border-color:#5a2a2a; color:#ffb3b3; }
+
+  .row{ display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+  .fld{ display:flex; flex-direction:column; gap:4px; }
+  .fld label{ font-size:11px; color:var(--sub); }
+  .fld input[type=text]{ background:#0e131a; color:#dfe6ee; border:1px solid var(--line);
+        border-radius:9px; padding:9px 11px; font-size:14px; min-width:140px; }
+  .swatches{ display:flex; gap:8px; align-items:center; }
+  .sw{ width:24px; height:24px; border-radius:50%; border:2px solid #2a3342; cursor:pointer; }
+  .sw.active{ border-color:#fff; }
+
+  textarea{ width:100%; height:120px; resize:vertical; background:#0e131a; color:#dfe6ee;
+        border:1px solid var(--line); border-radius:10px; padding:10px;
+        font-family:"SFMono-Regular",Menlo,Consolas,monospace; font-size:13px; line-height:1.55; }
+
+  button.go{ background:var(--amber); color:#1a1207; border:none; border-radius:10px;
+        padding:12px 18px; font-size:15px; font-weight:700; cursor:pointer; }
+  canvas{ width:100%; height:auto; border-radius:14px; display:block; margin-top:10px; cursor:pointer;
+        box-shadow:0 8px 30px rgba(0,0,0,.5); }
+  #durpop{ position:fixed; z-index:60; display:none; background:#0e131a; border:1px solid var(--line);
+        border-radius:11px; padding:6px; box-shadow:0 10px 28px rgba(0,0,0,.55); }
+  #durpop .t{ color:var(--sub); font-size:11px; padding:3px 10px 6px; }
+  #durpop button{ display:block; width:100%; text-align:left; background:none; border:none; color:var(--ink);
+        padding:9px 14px; font-size:14px; cursor:pointer; border-radius:8px; white-space:nowrap; }
+  #durpop button:hover{ background:#1b2533; }
+  #durpop button.cur{ color:var(--amber); font-weight:700; }
+  .savetip{ color:var(--sub); font-size:12px; margin:8px 2px 0; line-height:1.5; }
+  code{ background:#0e131a; padding:1px 5px; border-radius:5px; color:#cdd6e2; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎸 Tab Stüdyo</h1>
+  <p class="hint">Klavyeye (fretboard) dokun → nota soldan sağa sırayla eklenir.
+     Bağlama teknikleri (<b>h/p/~</b> vb.): önce notayı bas, sonra tekniği bas, sonra hedef notayı bas.
+     <b>Bend</b>: notayı bas, sonra <b>full bend</b> (+2 perde) ya da <b>½ bend</b> (+1 perde) butonuna bas —
+     notanın yanında yukarı ok + etiket ve parantezde <b>hedef ses otomatik</b> çıkar
+     (ör. <code>5</code> ↑ full (7), <code>5</code> ↑ 1/2 (6)). Görsel ve tab metni anında güncellenir.</p>
+
+  <!-- SETTINGS + PLAYBACK (en üst) -->
+  <div class="card">
+    <div class="row">
+      <div class="fld"><label>Etiket (sol üst)</label><input id="badge" type="text" value="Lick"></div>
+      <div class="fld"><label>İmza (sağ alt)</label><input id="wm" type="text" value="Serkan Bilgin"></div>
+      <div class="fld">
+        <label>Renk</label>
+        <div class="swatches">
+          <span class="sw active" data-c="#f4b14a" style="background:#f4b14a"></span>
+          <span class="sw" data-c="#46d6c8" style="background:#46d6c8"></span>
+          <span class="sw" data-c="#ff5d57" style="background:#ff5d57"></span>
+          <span class="sw" data-c="#7c8cff" style="background:#7c8cff"></span>
+          <span class="sw" data-c="#8ee06b" style="background:#8ee06b"></span>
+          <input id="accent" type="color" value="#f4b14a" style="width:34px;height:28px;border:none;background:none;">
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:12px;">
+      <div class="fld"><label>BPM</label>
+        <input id="bpm" type="number" value="90" min="20" max="300"
+          style="width:92px;background:#0e131a;color:#dfe6ee;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;"></div>
+      <div class="fld"><label>Nota değeri (1 nota = ?)</label>
+        <select id="subdiv" style="background:#0e131a;color:#dfe6ee;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:14px;">
+          <option value="1">1/4 (vuruş)</option>
+          <option value="2" selected>1/8</option>
+          <option value="4">1/16</option>
+        </select></div>
+      <div class="fld"><label>Çalma modu</label>
+        <select id="playmode" style="background:#0e131a;color:#dfe6ee;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:14px;">
+          <option value="even" selected>Eşit (her nota = 1 vuruş)</option>
+          <option value="cols">Süreli (nota uzunluğuna göre)</option>
+        </select></div>
+      <button class="go" id="play" style="padding:11px 18px;">▶︎ Çal</button>
+      <label style="display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;">
+        <input type="checkbox" id="loopc"> tekrar</label>
+      <div class="fld"><label>+BPM / tekrar</label>
+        <input id="ramp" type="number" value="0" min="0" max="50"
+          style="width:80px;background:#0e131a;color:#dfe6ee;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:14px;"></div>
+      <label style="display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;">
+        <input type="checkbox" id="soundc" checked> ses</label>
+      <label style="display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;">
+        <input type="checkbox" id="metroc" checked> metronom</label>
+      <label style="display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;">
+        <input type="checkbox" id="precountc" checked> ön sayım</label>
+      <label style="display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;">
+        <input type="checkbox" id="infoc"> bilgi katmanı</label>
+      <label style="display:flex;align-items:center;gap:6px;color:var(--sub);font-size:13px;">
+        <input type="checkbox" id="reelsc"> 9:16 Reels</label>
+    </div>
+  </div>
+
+  <!-- FRETBOARD -->
+  <div class="card">
+    <p class="sectitle">Klavye</p>
+    <div class="btns" style="margin-bottom:10px;align-items:flex-end;">
+      <button class="tbtn" id="multiBtn">◻︎ Çoklu seçim (akor)</button>
+      <button class="go" id="addChordBtn" style="padding:10px 16px;">＋ Akor ekle</button>
+      <div class="fld" style="min-width:auto;"><label>Nota uzunluğu</label>
+        <select id="notelen" style="background:#0e131a;color:#dfe6ee;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:14px;">
+          <option value="16">1/16</option>
+          <option value="8" selected>1/8</option>
+          <option value="4">1/4</option>
+          <option value="2">1/2</option>
+          <option value="1">1/1 (tam)</option>
+        </select></div>
+    </div>
+    <p class="hint" id="msHint" style="display:none;margin:0 0 8px;">
+      Çoklu seçim AÇIK: tellerden perdelere dokunup akoru seç. Bir teli susturmak için
+      <b>tel adına</b> dokun (→ x). Bitince <b>＋ Akor ekle</b>. Kapalıyken dokunmak tek nota ekler.</p>
+    <div class="fbscroll"><table class="fb" id="fb"></table></div>
+  </div>
+
+  <!-- TECHNIQUES -->
+  <div class="card">
+    <p class="sectitle">Teknikler — son notaya uygular</p>
+    <div class="btns" id="techs"></div>
+    <div class="btns" style="margin-top:9px;">
+      <button class="tbtn" data-act="dash">–<small>boşluk</small></button>
+      <button class="tbtn" data-act="bar">|<small>ölçü</small></button>
+      <button class="tbtn" data-act="undo">⟲<small>geri al</small></button>
+      <button class="tbtn warn" data-act="clear">🗑<small>temizle</small></button>
+    </div>
+  </div>
+
+  <!-- TAB TEXT (editable) -->
+  <div class="card">
+    <p class="sectitle">Tab metni (istersen elle de düzeltebilirsin)</p>
+    <textarea id="tab" spellcheck="false"></textarea>
+    <div class="btns" style="margin-top:10px;">
+      <button class="go" id="play2" style="padding:11px 22px;">▶︎ Çal</button>
+    </div>
+  </div>
+
+  <button class="go" id="dl">⬇️ PNG indir</button>
+
+  <canvas id="cv"></canvas>
+  <p class="savetip">✋ <b>İpucu:</b> önizlemede bir <b>notaya dokun</b> → süresini seç (1/1, 1/2, 1/4…). &nbsp;|&nbsp;
+     📱 Kaydetmek için görsele <b>basılı tut → "Resmi kaydet"</b>.</p>
+</div>
+
+<div id="durpop">
+  <div class="t">Nota süresi</div>
+  <button data-d="1">1/1 — tam (4 vuruş)</button>
+  <button data-d="2">1/2 — yarım (2 vuruş)</button>
+  <button data-d="4">1/4 — çeyrek (1 vuruş)</button>
+  <button data-d="8">1/8 — (½ vuruş)</button>
+  <button data-d="16">1/16 — (¼ vuruş)</button>
+</div>
+
+<script>
+const STRINGS = ["e","B","G","D","A","E"];   // top -> bottom (1st..6th)
+const MAXFRET = 24;
+const TECHS = [
+  ["h","hammer"],["p","pull"],
+  ["/","slide↑"],["\\","slide↓"],["~","vibrato"],["t","tap"],["x","mute"]
+];
+
+const ta = document.getElementById('tab');
+const badgeI = document.getElementById('badge');
+const wmI = document.getElementById('wm');
+const accentI = document.getElementById('accent');
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let lastString = null;
+let undoStack = [];
+let multiSelect = false;
+let chordSel = [null,null,null,null,null,null];   // per string: null | fret(number) | 'x'
+const notelenSel=document.getElementById('notelen');
+let noteHits=[];   // önizlemede tıklanabilir nota kutuları
+function noteLenCols(){ return Math.max(1, Math.round(16/(+notelenSel.value||8))); }
+const bpmI=document.getElementById('bpm');
+const subdivI=document.getElementById('subdiv');
+const playModeSel=document.getElementById('playmode');
+const playBtn=document.getElementById('play');
+const playBtn2=document.getElementById('play2');
+function setPlayLabel(txt){ playBtn.textContent=txt; if(playBtn2) playBtn2.textContent=txt; }
+const loopChk=document.getElementById('loopc');
+const rampI=document.getElementById('ramp');
+const soundChk=document.getElementById('soundc');
+const metroChk=document.getElementById('metroc');
+const preCountChk=document.getElementById('precountc');
+const infoChk=document.getElementById('infoc');
+const reelsChk=document.getElementById('reelsc');
+let playing=false, playStart=0, playCol=null, rafId=null, nextEv=0, onPlayEnd=null;
+let counting=false, countBeats=0, countStart=0, lastBeat=-1, countdownText=null;
+let audioCtx=null, masterGain=null, audioDest=null;
+function colDurMs(){ const bpm=+bpmI.value||90, cpb=+subdivI.value||2; return (60000/bpm)/cpb; }
+const MIDI_OPEN=[64,59,55,50,45,40];   // e B G D A E (ekran sırası)
+function ensureAudio(){
+  if(audioCtx) return;
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  masterGain=audioCtx.createGain(); masterGain.gain.value=0.9; masterGain.connect(audioCtx.destination);
+  audioDest=audioCtx.createMediaStreamDestination(); masterGain.connect(audioDest);
+}
+function playTone(freq){
+  const t=audioCtx.currentTime;
+  const o=audioCtx.createOscillator(); o.type='triangle'; o.frequency.value=freq;
+  const o2=audioCtx.createOscillator(); o2.type='sine'; o2.frequency.value=freq*2.01;
+  const g=audioCtx.createGain();
+  const lp=audioCtx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=2600;
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(0.32,t+0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.55);
+  o.connect(g); o2.connect(g); g.connect(lp); lp.connect(masterGain);
+  o.start(t); o2.start(t); o.stop(t+0.6); o2.stop(t+0.6);
+}
+function playClick(accent){
+  if(!audioCtx) return;
+  const t=audioCtx.currentTime;
+  const o=audioCtx.createOscillator(); o.type='square'; o.frequency.value=accent?2000:1250;
+  const g=audioCtx.createGain();
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(accent?0.5:0.3,t+0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.05);
+  o.connect(g); g.connect(masterGain);
+  o.start(t); o.stop(t+0.06);
+}
+function playEventAt(bodies, col){
+  if(!audioCtx) return;
+  for(let j=0;j<6;j++){
+    const b=bodies[j], ch=b[col];
+    if(ch>='0'&&ch<='9'){
+      const prev=col>0?b[col-1]:'-'; if(prev>='0'&&prev<='9') continue;
+      let s='',cc=col; while(cc<b.length && b[cc]>='0'&&b[cc]<='9'){ s+=b[cc]; cc++; }
+      playTone(440*Math.pow(2,(MIDI_OPEN[j]+parseInt(s,10)-69)/12));
+    }
+  }
+}
+
+/* ---------- build fretboard ---------- */
+(function buildFB(){
+  const fb = document.getElementById('fb');
+  let hdr = '<tr><td class="slabel"></td>';
+  for(let f=0; f<=MAXFRET; f++) hdr += `<td class="frethdr">${f}</td>`;
+  hdr += '</tr>';
+  let rows = '';
+  for(let s=0; s<STRINGS.length; s++){
+    rows += `<tr><td class="slabel" data-s="${s}">${STRINGS[s]}</td>`;
+    for(let f=0; f<=MAXFRET; f++){
+      rows += `<td class="fret${f===0?' open':''}" data-s="${s}" data-f="${f}">${f}</td>`;
+    }
+    rows += '</tr>';
+  }
+  fb.innerHTML = hdr + rows;
+  fb.addEventListener('click', e=>{
+    const lab = e.target.closest('.slabel');
+    if(lab && lab.dataset.s!=null){
+      if(!multiSelect) return;
+      const s=+lab.dataset.s;
+      chordSel[s] = (chordSel[s]==='x') ? null : 'x';
+      refreshSel(); return;
+    }
+    const c = e.target.closest('.fret'); if(!c) return;
+    const s=+c.dataset.s, f=+c.dataset.f;
+    if(multiSelect){
+      chordSel[s] = (chordSel[s]===f) ? null : f;
+      refreshSel();
+    } else {
+      c.classList.add('flash'); setTimeout(()=>c.classList.remove('flash'),140);
+      placeNote(s,f);
+    }
+  });
+})();
+
+/* ---------- build technique buttons ---------- */
+(function buildTechs(){
+  const box = document.getElementById('techs');
+  let html = TECHS.map(([sym,name])=>
+    `<button class="tbtn" data-tech="${sym.replace('\\','&#92;')}">${sym==='\\'?'\\':sym}<small>${name}</small></button>`).join('');
+  html += `<button class="tbtn amber" data-bend="^">↑<small>full bend</small></button>`;
+  html += `<button class="tbtn amber" data-bend="½">↑<small>½ bend</small></button>`;
+  box.innerHTML = html;
+  box.addEventListener('click', e=>{
+    const b = e.target.closest('.tbtn'); if(!b) return;
+    if(b.dataset.bend!=null) applyBend(b.dataset.bend);
+    else applyTech(b.dataset.tech);
+  });
+})();
+
+/* ---------- text <-> bodies helpers ---------- */
+function getBodies(){
+  const lines = ta.value.split('\n').filter(l=>l.trim()!=='').slice(0,6);
+  const bodies = [];
+  for(let i=0;i<6;i++){
+    let body='';
+    if(lines[i]!=null){
+      let s=lines[i]; const k=s.indexOf('|');
+      if(k>=0){ body=s.slice(k+1); if(body.endsWith('|')) body=body.slice(0,-1); }
+      else body=s;
+    }
+    bodies.push(body);
+  }
+  return equalize(bodies);
+}
+function equalize(b){ const L=Math.max(...b.map(x=>x.length),0);
+  return b.map(x=>{ while(x.length<L) x+='-'; return x; }); }
+function setBodies(b){ b=equalize(b);
+  ta.value = STRINGS.map((s,j)=> s+'|'+b[j]+'|').join('\n'); draw(); }
+function pushUndo(){ undoStack.push(ta.value); if(undoStack.length>200) undoStack.shift(); }
+
+/* ---------- editing operations ---------- */
+function placeNote(si, fret){
+  pushUndo();
+  let b = getBodies();
+  const fs = String(fret);
+  const total = Math.max(noteLenCols(), fs.length+1);
+  for(let k=0;k<total;k++){ for(let j=0;j<6;j++) b[j]+= (j===si && k<fs.length ? fs[k] : '-'); }
+  lastString = si;
+  setBodies(b);
+}
+function markAfterNote(mark, needRoom){
+  if(lastString==null) return;
+  let b=getBodies();
+  let row=b[lastString], i=row.length-1;
+  while(i>=0 && !(row[i]>='0'&&row[i]<='9')) i--;
+  if(i<0) return;
+  pushUndo();
+  let pos=i+1;
+  if(pos>=b[lastString].length){ for(let j=0;j<6;j++) b[j]+='-'; }
+  const arr=b[lastString].split(''); arr[pos]=mark; b[lastString]=arr.join('');
+  const L=Math.max(...b.map(x=>x.length)); b=b.map(x=>{ while(x.length<L) x+='-'; return x; });
+  if(needRoom && pos===b[lastString].length-1){ for(let j=0;j<6;j++) b[j]+='-'; }
+  setBodies(b);
+}
+function applyTech(sym){ markAfterNote(sym, false); }      // h p ~ t x
+function applyBend(mark){ markAfterNote(mark, true); }     // ^ full, ½ half (hedef için yer bırak)
+document.querySelector('[data-act="dash"]').onclick=()=>{ pushUndo(); let b=getBodies(); for(let j=0;j<6;j++) b[j]+='-'; setBodies(b); };
+document.querySelector('[data-act="bar"]').onclick =()=>{ pushUndo(); let b=getBodies(); for(let j=0;j<6;j++) b[j]+='|'; setBodies(b); };
+document.querySelector('[data-act="undo"]').onclick=()=>{ if(undoStack.length){ ta.value=undoStack.pop(); draw(); } };
+document.querySelector('[data-act="clear"]').onclick=()=>{ pushUndo(); lastString=null; setBodies(["","","","","",""]); };
+
+/* ---------- chord: multi-select on fretboard ---------- */
+function refreshSel(){
+  document.querySelectorAll('.fret.sel').forEach(c=>c.classList.remove('sel'));
+  document.querySelectorAll('.slabel.muted').forEach(c=>c.classList.remove('muted'));
+  chordSel.forEach((v,s)=>{
+    if(v==null) return;
+    if(v==='x'){ const lc=document.querySelector(`.slabel[data-s="${s}"]`); if(lc) lc.classList.add('muted'); }
+    else { const fc=document.querySelector(`.fret[data-s="${s}"][data-f="${v}"]`); if(fc) fc.classList.add('sel'); }
+  });
+}
+function clearChordSel(){ chordSel=[null,null,null,null,null,null]; refreshSel(); }
+const multiBtn=document.getElementById('multiBtn');
+const msHint=document.getElementById('msHint');
+multiBtn.addEventListener('click',()=>{
+  multiSelect=!multiSelect;
+  multiBtn.classList.toggle('amber', multiSelect);
+  multiBtn.textContent = multiSelect ? '☑ Çoklu seçim: AÇIK' : '◻︎ Çoklu seçim (akor)';
+  msHint.style.display = multiSelect ? 'block' : 'none';
+  if(!multiSelect) clearChordSel();
+});
+document.getElementById('addChordBtn').addEventListener('click',()=>{
+  if(chordSel.every(v=>v==null)) return;
+  pushUndo();
+  let b=getBodies();
+  const cells=chordSel.map(v=> v==null ? '-' : String(v));
+  const W=Math.max(...cells.map(v=> v==='-'?1:v.length),1);
+  const total=Math.max(noteLenCols(), W+1);
+  for(let col=0;col<total;col++){ for(let j=0;j<6;j++){ const v=cells[j];
+    b[j]+= (v!=='-' && col<v.length) ? v[col] : '-'; } }
+  lastString=null;
+  clearChordSel();
+  setBodies(b);
+});
+
+/* ---------- styled canvas renderer ---------- */
+function lighten(hex,f){ const c=hex.replace('#','');
+  const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);
+  const m=v=>Math.round(v+(255-v)*f); return 'rgb('+m(r)+','+m(g)+','+m(b)+')'; }
+function parseSystems(text){
+  const lines=text.replace(/\t/g,' ').split('\n'); const sys=[]; let cur=[];
+  for(const ln of lines){
+    if(ln.trim()===''){ if(cur.length){sys.push(cur);cur=[];} continue; }
+    let s=ln.replace(/\s+$/,''); let label='',body=s; const i=s.indexOf('|');
+    if(i>=0){ label=s.slice(0,i).trim(); body=s.slice(i+1); if(body.endsWith('|')) body=body.slice(0,-1); }
+    if(!/^[A-Ga-g#b]{1,3}$/.test(label)) label='';
+    cur.push({label,body});
+  }
+  if(cur.length) sys.push(cur);
+  for(const system of sys){ const L=Math.max(...system.map(r=>r.body.length),1);
+    for(const r of system){ while(r.body.length<L) r.body+='-'; } }
+  return sys;
+}
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function draw(){
+  noteHits=[];
+  const systems=parseSystems(ta.value); const accent=accentI.value; const accentHi=lighten(accent,0.45);
+  const INK='#f3f4f7', LINE='#3c434f', SUB='#8a93a3';
+  const reels = reelsChk && reelsChk.checked;
+  const Wpx = reels?1080:2400;
+  const margin = reels?40:44;
+  const SLS = reels?64:76;
+  const GAP = reels?120:150;
+  const rows=systems.map(s=>s.length);
+  let span=0; rows.forEach((r,k)=>{ span+=(r-1)*SLS; if(k>0) span+=GAP; });
+  let TOP,BOT,Hpx;
+  if(reels){ Hpx=1920; TOP=Math.max(420,(Hpx-span)/2); BOT=Hpx-TOP-span; }
+  else { TOP=250; BOT=200; Hpx=TOP+span+BOT; }
+  cv.width=Wpx; cv.height=Hpx;
+  ctx.fillStyle='#05070a'; ctx.fillRect(0,0,Wpx,Hpx);
+  const cx=margin,cy=margin,cw=Wpx-2*margin,chh=Hpx-2*margin;
+  ctx.save(); ctx.shadowColor=accent; ctx.shadowBlur=40; roundRect(cx,cy,cw,chh,40);
+  ctx.fillStyle='rgba(0,0,0,0)'; ctx.fill(); ctx.restore();
+  roundRect(cx,cy,cw,chh,40); ctx.save(); ctx.clip();
+  const g=ctx.createLinearGradient(0,cy,0,cy+chh); g.addColorStop(0,'#141a24'); g.addColorStop(1,'#080b0f');
+  ctx.fillStyle=g; ctx.fillRect(cx,cy,cw,chh);
+  const rg=ctx.createRadialGradient(Wpx/2,cy+chh*0.25,50,Wpx/2,cy+chh*0.25,Wpx*0.6);
+  rg.addColorStop(0, lighten(accent,0).replace('rgb','rgba').replace(')',',0.06)'));
+  rg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=rg; ctx.fillRect(cx,cy,cw,chh); ctx.restore();
+  roundRect(cx,cy,cw,chh,40); ctx.lineWidth=2.4; ctx.strokeStyle=accent; ctx.globalAlpha=0.55; ctx.stroke(); ctx.globalAlpha=1;
+
+  const Xlabel=margin+(reels?54:78), Xstart=margin+(reels?170:300), Xend=Wpx-margin-(reels?70:150);
+  let yTop=TOP; let sys0dx=0, sys0top=0, sys0bot=0;
+  for(let s=0;s<systems.length;s++){
+    const system=systems[s]; const nrows=system.length; const L=system[0].body.length;
+    const dx=(Xend-Xstart)/Math.max(L-1,1);
+    const fD=Math.max(30,Math.min(62,dx*0.92)); const fL=fD*0.68;
+    const row0Y=yTop, lastY=row0Y+(nrows-1)*SLS;
+    if(s===0){ sys0dx=dx; sys0top=row0Y; sys0bot=lastY; }
+    const barsSet=new Set();
+    system.forEach(r=>{ for(let c=0;c<r.body.length;c++) if(r.body[c]==='|') barsSet.add(c); });
+    for(let i=0;i<nrows;i++){
+      const {label,body}=system[i]; const y=row0Y+i*SLS;
+      const active=[...body].some(ch=>ch!=='-'&&ch!=='|'&&ch!==' ');
+      ctx.strokeStyle=active?accent:LINE; ctx.globalAlpha=active?0.40:0.55; ctx.lineWidth=active?2.4:1.8;
+      ctx.beginPath(); ctx.moveTo(cx+45,y); ctx.lineTo(Xend,y); ctx.stroke(); ctx.globalAlpha=1;
+      const lab=label||(i<6?STRINGS[i]:'');
+      ctx.fillStyle=active?accent:SUB; ctx.font='700 24px Georgia,serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(lab,Xlabel,y);
+    }
+    ctx.strokeStyle=SUB; ctx.globalAlpha=0.32; ctx.lineWidth=1.8;
+    [Xstart-dx*0.6,Xend].forEach(bx=>{ ctx.beginPath(); ctx.moveTo(bx,lastY); ctx.lineTo(bx,row0Y); ctx.stroke(); });
+    barsSet.forEach(c=>{ const bx=Xstart+c*dx; ctx.beginPath(); ctx.moveTo(bx,lastY); ctx.lineTo(bx,row0Y); ctx.stroke(); });
+    ctx.globalAlpha=1;
+    for(let i=0;i<nrows;i++){
+      const body=system[i].body; const y=row0Y+i*SLS; let c=0; let lastNum=null;
+      while(c<body.length){
+        const ch=body[c];
+        if(ch==='-'||ch==='|'||ch===' '){ c++; continue; }
+        const cls = /[0-9]/.test(ch)?'num' : /[a-zA-Z]/.test(ch)?'let' : 'sym';
+        const start=c; let str=ch; c++;
+        if(cls!=='sym'){
+          while(c<body.length){ const n=body[c];
+            const ncls=/[0-9]/.test(n)?'num':/[a-zA-Z]/.test(n)?'let':'sym';
+            if(ncls===cls){ str+=n; c++; } else break; }
+        }
+        const center=start+(str.length-1)/2; const xc=Xstart+center*dx;
+        if(str==='^' || str==='½'){
+          const lbl=(str==='^')?'full':'1/2';
+          const semis=(str==='^')?2:1;
+          ctx.save();
+          ctx.strokeStyle=accentHi; ctx.fillStyle=accentHi;
+          ctx.shadowColor=accent; ctx.shadowBlur=18; ctx.lineCap='round';
+          ctx.lineWidth=Math.max(4,fD*0.12);
+          const botY=y - fD*0.05, topY=y - fD*0.95;
+          ctx.beginPath(); ctx.moveTo(xc,botY); ctx.lineTo(xc,topY); ctx.stroke();
+          const hs=fD*0.24;
+          ctx.beginPath(); ctx.moveTo(xc,topY); ctx.lineTo(xc-hs,topY+hs);
+          ctx.moveTo(xc,topY); ctx.lineTo(xc+hs,topY+hs); ctx.stroke();
+          ctx.shadowBlur=12; ctx.font='italic 700 '+(fL*0.9)+'px Georgia,serif';
+          ctx.textAlign='center'; ctx.textBaseline='bottom';
+          ctx.fillText(lbl,xc,topY-6);
+          ctx.restore();
+          if(lastNum!=null){
+            const tgt='('+(lastNum+semis)+')'; const tx=xc+dx;
+            ctx.font='700 '+(fD*0.74)+'px Arial,Helvetica,sans-serif';
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            ctx.lineJoin='round'; ctx.lineWidth=fD*0.34; ctx.strokeStyle='#0a0d12';
+            ctx.strokeText(tgt,tx,y); ctx.fillStyle=SUB; ctx.fillText(tgt,tx,y);
+          }
+          continue;
+        }
+        let color,font;
+        if(cls==='num'){ color=INK; font='800 '+fD+'px Arial,Helvetica,sans-serif'; }
+        else if(str==='/'||str==='\\'){ color=accentHi; font='700 '+(fD*0.9)+'px Arial,sans-serif'; }
+        else if(str==='x'||str==='X'){ color=SUB; font='700 '+(fD*0.82)+'px Arial,sans-serif'; }
+        else { color=accent; font='italic 700 '+fL+'px Georgia,serif'; }
+        const hot=(playCol!=null && s===0 && Math.abs(center-playCol)<0.55);
+        ctx.font=font; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.lineJoin='round'; ctx.lineWidth=fD*0.40; ctx.strokeStyle='#0a0d12';
+        ctx.strokeText(str,xc,y);
+        if(hot){ ctx.save(); ctx.shadowColor=accent; ctx.shadowBlur=26;
+          ctx.fillStyle=(cls==='num'?accentHi:color); ctx.fillText(str,xc,y); ctx.restore(); }
+        else { ctx.fillStyle=color; ctx.fillText(str,xc,y); }
+        if(cls==='num'){ lastNum=parseInt(str,10);
+          const w=ctx.measureText(str).width;
+          noteHits.push({s, j:i, colStart:start, colLen:str.length, cx:xc, cy:y, hw:w/2, hh:fD*0.6});
+        }
+      }
+    }
+    yTop=lastY+GAP;
+  }
+  if(playing && playCol!=null && sys0dx>0){
+    const px=Xstart+playCol*sys0dx;
+    if(px>=Xstart-10 && px<=Xend+12){
+      ctx.save(); ctx.strokeStyle=accentHi; ctx.shadowColor=accent; ctx.shadowBlur=28;
+      ctx.globalAlpha=0.95; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.moveTo(px,sys0top-30); ctx.lineTo(px,sys0bot+30); ctx.stroke();
+      ctx.restore();
+    }
+  }
+  const bx=cx+90,by=cy+70;
+  ctx.font='700 28px Arial,sans-serif'; ctx.fillStyle=accent; ctx.textAlign='left'; ctx.textBaseline='middle';
+  if('letterSpacing' in ctx) ctx.letterSpacing='6px';
+  ctx.fillText((badgeI.value||'').toUpperCase(),bx,by);
+  if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+  ctx.strokeStyle=accent; ctx.globalAlpha=0.9; ctx.lineWidth=5;
+  ctx.beginPath(); ctx.moveTo(bx+2,by+26); ctx.lineTo(bx+70,by+26); ctx.stroke(); ctx.globalAlpha=1;
+  ctx.font='italic 700 34px Georgia,serif'; ctx.fillStyle='#e7d8bd'; ctx.textAlign='right'; ctx.textBaseline='middle';
+  ctx.globalAlpha=0.9; ctx.fillText(wmI.value||'',Wpx-margin-70,Hpx-margin-50); ctx.globalAlpha=1;
+  if(infoChk && infoChk.checked){
+    const bpm=+bpmI.value||90;
+    ctx.font='700 26px Arial,sans-serif'; ctx.fillStyle=accent;
+    ctx.textAlign='right'; ctx.textBaseline='middle';
+    ctx.fillText('♩ = '+bpm, Wpx-margin-70, cy+70);
+    ctx.font='italic 600 20px Georgia,serif'; ctx.fillStyle=SUB;
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText('h hammer    p pull    b bend    ~ vibrato    /  \\  slide', cx+90, Hpx-margin-50);
+  }
+  if(countdownText!=null){
+    ctx.save();
+    ctx.fillStyle=accent; ctx.globalAlpha=0.92; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor=accent; ctx.shadowBlur=40;
+    ctx.font='800 '+(reels?340:220)+'px Arial,sans-serif';
+    ctx.fillText(countdownText, Wpx/2, Hpx/2);
+    ctx.restore();
+  }
+}
+
+/* ---------- wiring ---------- */
+function syncSwatch(){ document.querySelectorAll('.sw').forEach(sw=>{
+  sw.classList.toggle('active', sw.dataset.c && sw.dataset.c.toLowerCase()===accentI.value.toLowerCase()); }); }
+document.querySelectorAll('.sw').forEach(sw=>{ if(sw.dataset.c)
+  sw.addEventListener('click',()=>{ accentI.value=sw.dataset.c; syncSwatch(); draw(); }); });
+[ta,badgeI,wmI,accentI].forEach(el=>el.addEventListener('input',()=>{ syncSwatch(); draw(); }));
+document.getElementById('dl').addEventListener('click',()=>{
+  const a=document.createElement('a'); a.download=(badgeI.value||'tab').replace(/\s+/g,'_')+'.png';
+  a.href=cv.toDataURL('image/png'); a.click(); });
+
+/* ---------- playback (kayan çubuk) ---------- */
+function noteOnsetCols(bodies){
+  // her notanın (veya akorun) başladığı kolonların sıralı listesi
+  const L=bodies[0].length, cols=[];
+  for(let c=0;c<L;c++){
+    let onset=false;
+    for(let j=0;j<6;j++){
+      const ch=bodies[j][c];
+      if(ch>='0'&&ch<='9'){
+        const prev=c>0?bodies[j][c-1]:'-';
+        if(!(prev>='0'&&prev<='9')){ onset=true; break; }
+      }
+    }
+    if(onset) cols.push(c);
+  }
+  return cols;
+}
+function frame(now){
+  if(!playing) return;
+  const sysArr=parseSystems(ta.value);
+  if(!sysArr.length){ endPlay(); return; }
+  const bodies=sysArr[0].map(r=>r.body);
+  const L0=bodies[0].length;
+  const ev=noteOnsetCols(bodies);
+  const bpm=+bpmI.value||90;
+  const beatMs=60000/bpm;
+
+  // metronom + ön sayım tıkları
+  const beatIdx=Math.floor((now-countStart)/beatMs);
+  while(lastBeat<beatIdx){
+    lastBeat++;
+    const inCount = counting && lastBeat<countBeats;
+    if(inCount || metroChk.checked){ ensureAudio(); playClick(lastBeat%4===0); }
+  }
+
+  // ön sayım aşaması
+  if(counting && now<playStart){
+    countdownText=String(Math.min(countBeats, Math.floor((now-countStart)/beatMs)+1));
+    playCol=null; draw(); rafId=requestAnimationFrame(frame); return;
+  }
+  counting=false; countdownText=null;
+
+  const dur=(playModeSel.value==='even')?colDurMs():beatMs/4;
+  const t=(now-playStart)/dur;
+  let done=false;
+  if(playModeSel.value==='even'){
+    if(ev.length===0){ endPlay(); return; }
+    const p=t;
+    if(p>=ev.length-1+0.6) done=true;
+    const i=Math.floor(p);
+    if(i>=ev.length-1) playCol=ev[ev.length-1];
+    else { const frac=p-i; playCol=ev[i]+frac*(ev[i+1]-ev[i]); }
+  } else {
+    playCol=t;
+    if(playCol>L0+0.3) done=true;
+  }
+  while(nextEv<ev.length && playCol>=ev[nextEv]-0.001){
+    if(soundChk.checked){ ensureAudio(); playEventAt(bodies, ev[nextEv]); }
+    nextEv++;
+  }
+  if(done){
+    if(loopChk.checked){
+      playStart=now; nextEv=0; countStart=now; lastBeat=-1;
+      const r=+rampI.value||0; if(r) bpmI.value=Math.min(300,(+bpmI.value||90)+r);
+    } else { endPlay(); return; }
+  }
+  draw();
+  rafId=requestAnimationFrame(frame);
+}
+function startPlay(cb){
+  if(playing) return;
+  ensureAudio(); if(audioCtx.state==='suspended') audioCtx.resume();
+  onPlayEnd=cb||null; playing=true; nextEv=0;
+  counting=preCountChk.checked; countBeats=counting?4:0;
+  countStart=performance.now(); lastBeat=-1;
+  playStart=countStart + countBeats*(60000/(+bpmI.value||90));
+  countdownText=counting?String(countBeats):null;
+  setPlayLabel('⏸ Durdur'); rafId=requestAnimationFrame(frame);
+}
+function stopPlay(){ playing=false; playCol=null; onPlayEnd=null; counting=false; countdownText=null;
+  setPlayLabel('▶︎ Çal'); if(rafId) cancelAnimationFrame(rafId); draw(); }
+function endPlay(){ const cb=onPlayEnd; onPlayEnd=null; stopPlay(); if(cb) cb(); }
+playBtn.addEventListener('click',()=>{ playing?stopPlay():startPlay(); });
+if(playBtn2) playBtn2.addEventListener('click',()=>{ playing?stopPlay():startPlay(); });
+
+/* ---------- click a note to set its duration ---------- */
+const durpop=document.getElementById('durpop');
+let durTarget=null;
+function hideDur(){ durpop.style.display='none'; durTarget=null; }
+function currentNoteDenom(hit){
+  const b=getBodies(); const ons=noteOnsetCols(b); const idx=ons.indexOf(hit.colStart);
+  if(idx<0) return 0;
+  const next=(idx+1<ons.length)?ons[idx+1]:b[0].length;
+  return Math.round(16/Math.max(1,next-hit.colStart));
+}
+function setNoteDuration(hit, denom){
+  let b=getBodies(); const ons=noteOnsetCols(b); const idx=ons.indexOf(hit.colStart);
+  if(idx<0) return;
+  const thisOn=hit.colStart, nextOn=(idx+1<ons.length)?ons[idx+1]:b[0].length;
+  const span=nextOn-thisOn;
+  const desired=Math.max(Math.round(16/denom), hit.colLen);
+  const diff=desired-span;
+  if(diff===0) return;
+  pushUndo();
+  if(diff>0){
+    b=b.map(row=> row.slice(0,nextOn) + '-'.repeat(diff) + row.slice(nextOn));
+  } else {
+    let need=-diff; const gapStart=thisOn+hit.colLen; const rem=new Set();
+    for(let c=nextOn-1;c>=gapStart && need>0;c--){
+      let allDash=true; for(let j=0;j<6;j++){ if(b[j][c]!=='-'){ allDash=false; break; } }
+      if(allDash){ rem.add(c); need--; }
+    }
+    b=b.map(row=> row.split('').filter((_,c)=>!rem.has(c)).join(''));
+  }
+  setBodies(b);
+}
+cv.addEventListener('click', e=>{
+  const rect=cv.getBoundingClientRect();
+  const sx=cv.width/rect.width, sy=cv.height/rect.height;
+  const x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sy;
+  const hit=noteHits.find(n=> n.s===0 && Math.abs(x-n.cx)<n.hw+16 && Math.abs(y-n.cy)<n.hh+16);
+  if(!hit){ hideDur(); return; }
+  if(playing) stopPlay();
+  durTarget=hit;
+  const cur=currentNoteDenom(hit);
+  durpop.querySelectorAll('button').forEach(btn=>btn.classList.toggle('cur', +btn.dataset.d===cur));
+  durpop.style.left=Math.min(e.clientX, window.innerWidth-200)+'px';
+  durpop.style.top=Math.min(e.clientY+8, window.innerHeight-230)+'px';
+  durpop.style.display='block';
+});
+durpop.querySelectorAll('button').forEach(btn=> btn.addEventListener('click', ev=>{
+  ev.stopPropagation(); if(durTarget) setNoteDuration(durTarget, +btn.dataset.d); hideDur();
+}));
+document.addEventListener('click', e=>{ if(e.target!==cv && !durpop.contains(e.target)) hideDur(); });
+
+/* start empty */
+setBodies(["","","","","",""]);
+</script>
+</body>
+</html>
